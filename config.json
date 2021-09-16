@@ -1,0 +1,76 @@
+{
+  "min_insns": 20,
+  "max_insns": 250,
+  "maps": [
+    {
+      "map_type": "BPF_MAP_TYPE_HASH",
+      "key_size": 4,
+      "value_size": 8,
+      "max_entries": 64,
+      "map_flags": [
+        "BPF_F_NO_PREALLOC"
+      ]
+    },
+    {
+      "map_type": "BPF_MAP_TYPE_PERCPU_HASH",
+      "key_size": 4,
+      "value_size": 4,
+      "max_entries": 128,
+      "map_flags": [
+        "BPF_F_NO_PREALLOC"
+      ]
+    },
+    {
+      "map_type": "BPF_MAP_TYPE_ARRAY",
+      "key_size": 4,
+      "value_size": 128,
+      "max_entries": 2,
+      "map_flags": [
+      ]
+    }
+  ],
+  "try_leak_into_map": true,
+  "try_leak_into_mem": true,
+  "chaos_mode": false,
+  "stack_align": true,
+  "stack_size": 512,
+  "reg_bind_range": 64,
+  "alu_scal_ops": [
+    "BPF_ADD",
+    "BPF_SUB",
+    "BPF_MUL",
+    "BPF_DIV",
+    "BPF_OR",
+    "BPF_AND",
+    "BPF_LSH",
+    "BPF_RSH",
+    "BPF_MOD",
+    "BPF_XOR"
+  ],
+  "alu_atomic_ops": [
+    "BPF_ADD",
+    "BPF_AND",
+    "BPF_OR",
+    "BPF_XOR",
+    "BPF_ADD | BPF_FETCH",
+    "BPF_AND | BPF_FETCH",
+    "BPF_OR | BPF_FETCH",
+    "BPF_XOR | BPF_FETCH",
+    "BPF_XCHG",
+    "BPF_CMPXCHG"
+  ],
+  "alu_insns": [
+    "BPF_ALU64_REG",
+    "BPF_ALU64_IMM",
+    "BPF_ALU32_REG",
+    "BPF_ALU32_IMM"
+  ],
+  "mov_insns": [
+    "BPF_MOV64_REG",
+    "BPF_MOV64_IMM",
+    "BPF_MOV32_REG",
+    "BPF_MOV32_IMM"
+  ],
+  "imm32_min": -8192,
+  "imm32_max": 8192
+}
