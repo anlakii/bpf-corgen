@@ -1,25 +1,24 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <assert.h>
-#include <string.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <linux/if_ether.h>
-#include <linux/if_packet.h>
-#include <linux/ip.h>
-#include <linux/bpf.h>
-#include <stddef.h>
-#include <bpf/bpf.h>
-#include <arpa/inet.h>
-#include <net/if.h>
-#include <sys/syscall.h>
-#include <signal.h>
-#include <regex.h>
 #include "loader.h"
 #include "debug.h"
 #include "gen.h"
+#include <arpa/inet.h>
+#include <assert.h>
+#include <bpf/bpf.h>
+#include <errno.h>
+#include <linux/bpf.h>
+#include <linux/if_ether.h>
+#include <linux/if_packet.h>
+#include <linux/ip.h>
+#include <net/if.h>
+#include <regex.h>
+#include <signal.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 static struct err_summary errors[0x400];
 static struct environ *environ = NULL;
@@ -60,26 +59,12 @@ size_t get_rand_map_key(struct map_info *map, int64_t *ret_key)
 void sanitizer_err_msg(char **msg)
 {
 	char *test = strdup(*msg);
-
-	char pattern_reg[] = "R[0-9] ";
-	char replace_reg[] = "Rx ";
-	regex_replace(&test, pattern_reg, replace_reg);
-
-	char pattern_invalid_access[] = "off=(-?)[0-9]+";
-	char replace_invalid_access[] = "off=\1X";
-	regex_replace(&test, pattern_invalid_access, replace_invalid_access);
-
-	char pattern_reg_ptr[] = "math between ([a-z_]+) pointer and -?[0-9]{5,}";
-	char replace_reg_ptr[] = "math between \1 pointer and BIG_X";
-	regex_replace(&test, pattern_reg_ptr, replace_reg_ptr);
-
-	char pattern_stx_offset[] = "([+-]+)[0-9]+ ";
-	char replace_stx_offset[] = " \1X ";
-	regex_replace(&test, pattern_stx_offset, replace_stx_offset);
-
-	char pattern_big_const[] = "-?[0-9]{5,}";
-	char replace_big_const[] = "BIG_X";
-	regex_replace(&test, pattern_big_const, replace_big_const);
+	regex_replace(&test, "R[0-9] ", "Rx ");
+	regex_replace(&test, "off=(-?)[0-9]+", "off=\1X");
+	regex_replace(&test, "math between ([a-z_]+) pointer and -?[0-9]{5,}", "math between \1 pointer and BIG_X");
+	regex_replace(&test, "id=[0-9]+ alloc_insn=[0-9]+", "id=X alloc_insn=Y");
+	regex_replace(&test, "([+-]+)[0-9]+ ", " \1X ");
+	regex_replace(&test, "-?[0-9]{5,}", "BIG_X");
 	*msg = test;
 }
 
@@ -158,12 +143,8 @@ bool load_bpf_maps(struct environ *env)
 
 	for (size_t idx = 0; idx < env->conf->maps_len; idx++) {
 		int fd = -1;
-		fd = bpf_create_map(
-			env->conf->maps[idx].type,
-			env->conf->maps[idx].key_size,
-			env->conf->maps[idx].value_size,
-			env->conf->maps[idx].max_entries,
-			env->conf->maps[idx].map_flags);
+		fd = bpf_create_map(env->conf->maps[idx].type, env->conf->maps[idx].key_size, env->conf->maps[idx].value_size,
+							env->conf->maps[idx].max_entries, env->conf->maps[idx].map_flags);
 		if (fd < 0)
 			_warning("failed to load map at idx: %zu", idx);
 		else {
@@ -192,15 +173,13 @@ bool run_bpf_prog(struct environ *env)
 	struct bpf_insn *insn = env->insns;
 	uint32_t cnt = env->generated_insns;
 
-	union bpf_attr prog_attrs =
-		{
-			.prog_type = BPF_PROG_TYPE_SOCKET_FILTER,
-			.insn_cnt = cnt,
-			.insns = (uint64_t) insn,
-			.license = (uint64_t) "GPL",
-			.log_level = 2,
-			.log_size = sizeof(verifier_log_buff),
-			.log_buf = (uint64_t) verifier_log_buff};
+	union bpf_attr prog_attrs = {.prog_type = BPF_PROG_TYPE_SOCKET_FILTER,
+								 .insn_cnt = cnt,
+								 .insns = (uint64_t) insn,
+								 .license = (uint64_t) "GPL",
+								 .log_level = 2,
+								 .log_size = sizeof(verifier_log_buff),
+								 .log_buf = (uint64_t) verifier_log_buff};
 
 	signal(SIGINT, sigint_handler);
 

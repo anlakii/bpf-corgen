@@ -1,10 +1,10 @@
 #ifndef __INIT_STRUCTS_H
 #define __INIT_STRUCTS_H
-#include <linux/filter.h>
-#include <linux/ip.h>
-#include <linux/if_ether.h>
-#include "linux/bpf.h"
 #include "gen.h"
+#include "linux/bpf.h"
+#include <linux/filter.h>
+#include <linux/if_ether.h>
+#include <linux/ip.h>
 
 struct bpf_reg bpf_regs[] = {
 	(struct bpf_reg){
@@ -75,26 +75,6 @@ struct bpf_reg bpf_regs[] = {
 	},
 };
 
-uint8_t bpf_mem_size[] = {
-	BPF_B,
-	BPF_H,
-	BPF_W,
-	//BPF_DW
-};
-
-bool (*gen_rand_insn_type[])(struct environ *) = {
-	generate_rand_mov,
-	generate_rand_mov,
-	generate_rand_ld_imm64,
-	generate_rand_alu,
-	generate_rand_alu,
-	generate_rand_mem_ld,
-	generate_rand_map_op,
-	generate_rand_ptr_stx,
-	generate_rand_reg_spill,
-	generate_rand_bind,
-	generate_rand_helper_call,
-  //generate_rand_zext_reg
-  };
+uint8_t bpf_mem_size[] = {BPF_B, BPF_H, BPF_W, BPF_DW};
 
 #endif

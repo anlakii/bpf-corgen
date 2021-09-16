@@ -1,15 +1,15 @@
 #ifndef __GEN_H
 #define __GEN_H 1
 
+#include "bpf_insn.h"
+#include "config.h"
+#include "helpers.h"
+#include <bpf/bpf.h>
+#include <bpf/libbpf.h>
 #include <linux/bpf.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <bpf/bpf.h>
-#include <bpf/libbpf.h>
-#include "helpers.h"
-#include "bpf_insn.h"
-#include "config.h"
 
 #define INSN_STR_LEN 50
 #define MAP_FD_REG_IDX 1
@@ -46,6 +46,7 @@ struct bpf_reg {
 	bool mutable;
 	uint8_t reg_type;
 	bool is_known;
+	uint32_t mem_range;
 
 	struct bpf_map_def *map;
 };
@@ -57,10 +58,10 @@ struct map_ops {
 };
 
 struct map_info {
+	int fd;
 	struct bpf_map_def *map;
 	struct map_ops ops;
-	struct map_ops ops_enabled;
-	int fd;
+	bool ringbuf_reserved;
 };
 
 struct environ {
@@ -80,15 +81,20 @@ struct environ {
 	struct config *conf;
 };
 
-struct map_info *get_map_from_fd(struct environ *env, int map_fd);
-size_t get_rand_op(struct environ *env);
-size_t get_rand_op_ptr(struct environ *env);
+bool is_not_known(struct bpf_reg *reg);
+bool is_init(struct bpf_reg *reg);
+bool is_ptr_to_map_value(struct bpf_reg *reg);
+bool is_not_ptr_to_mem(struct bpf_reg *reg);
+bool is_not_ptr_to_map_value(struct bpf_reg *reg);
+bool is_not_ptr_to_ctx(struct bpf_reg *reg);
+bool is_not_const_ptr_to_map(struct bpf_reg *reg);
+bool is_ptr(struct bpf_reg *reg);
+bool is_scalar(struct bpf_reg *reg);
+bool is_enabled(struct bpf_reg *reg);
+bool is_mutable(struct bpf_reg *reg);
 struct bpf_reg *get_rand_reg(struct environ *env, ...);
-bool is_arithmetic_allowed(struct environ *env, struct bpf_reg *dst, struct bpf_reg *src, uint8_t op);
-bool should_min_bound(struct environ *env, struct bpf_reg *reg);
-uint8_t get_count_ptr_reg_init_mutable(struct environ *env);
-uint8_t get_reg_mutable_count_of_type(struct environ *env, uint8_t type);
-bool generate_rand_bind(struct environ *env);
+bool should_s64min_bound(struct environ *env, struct bpf_reg *reg);
+bool generate_rand_reg_bounds(struct environ *env);
 bool generate_rand_alu_reg(struct environ *env);
 bool generate_rand_alu_imm(struct environ *env);
 bool generate_rand_alu(struct environ *env);
@@ -98,17 +104,24 @@ bool generate_rand_ld_imm64(struct environ *env);
 bool generate_rand_mem_ld(struct environ *env);
 bool generate_rand_mov(struct environ *env);
 bool generate_rand_map_op(struct environ *env);
-bool prep_bpf_map_load(struct environ *env, int map_fd);
-bool prep_map_lookup_elem(struct environ *env, int map_fd);
-bool prep_map_update_elem(struct environ *env, int map_fd);
+bool generate_rand_ptr_ldx(struct environ *env);
 bool generate_rand_ptr_stx(struct environ *env);
 bool generate_rand_reg_spill(struct environ *env);
 bool generate_rand_helper_call(struct environ *env);
 bool generate_rand_zext_reg(struct environ *env);
-bool gen_map_atomic_op(struct environ *env);
-bool prep_rand_map_op(struct environ *env, int map_fd);
+bool generate_map_update_elem(struct environ *env, struct map_info *map);
+bool generate_map_lookup_elem(struct environ *env, struct map_info *map);
+bool generate_map_delete_elem(struct environ *env, struct map_info *map);
+bool generate_ringbuf_reserve(struct environ *env, struct map_info *map);
+bool generate_ringbuf_discard(struct environ *env, struct map_info *map);
+bool generate_rand_map_atomic_op(struct environ *env);
+void generate_prog_footer(struct environ *env);
 int generate(struct environ *env);
-void prepare_prog_header(struct environ *env);
+void generate_prog_header(struct environ *env);
 void setup(struct environ *env);
+size_t get_rand_op(struct environ *env);
+size_t get_rand_op_ptr(struct environ *env);
+uint8_t get_req_footer_space(struct environ *env);
+bool has_insn_space(struct environ *env, uint16_t insns);
 
 #endif

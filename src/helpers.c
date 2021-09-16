@@ -1,18 +1,13 @@
-#include <linux/filter.h>
+#include "debug.h"
 #include <linux/bpf.h>
+#include <linux/filter.h>
+#include <regex.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <regex.h>
-#include "debug.h"
 
 void disas_insn(struct bpf_insn insn)
 {
-	_log("code: %02x, dst: %02x, src: %02x, off: %04x, imm: %08x",
-		 insn.code,
-		 insn.dst_reg,
-		 insn.src_reg,
-		 insn.off,
-		 insn.imm);
+	_log("code: %02x, dst: %02x, src: %02x, off: %04x, imm: %08x", insn.code, insn.dst_reg, insn.src_reg, insn.off, insn.imm);
 }
 
 int64_t rand_between(int64_t min, int64_t max)
@@ -22,17 +17,19 @@ int64_t rand_between(int64_t min, int64_t max)
 
 int64_t rand64()
 {
-  return ((int64_t)rand() << 32) | ((int64_t)rand());
+	return ((int64_t) rand() << 32) | ((int64_t) rand());
 }
 
-// Taken from: https://stackoverflow.com/questions/8044081/how-to-do-regex-string-replacements-in-pure-c
+// Taken from:
+// https://stackoverflow.com/questions/8044081/how-to-do-regex-string-replacements-in-pure-c
 int regex_replace(char **str, const char *pattern, const char *replace)
 {
 	// replaces regex in pattern with replacement observing capture groups
 	// *str MUST be free-able, i.e. obtained by strdup, malloc, ...
-	// back references are indicated by char codes 1-31 and none of those chars can be used in the replacement string such as a tab.
-	// will not search for matches within replaced text, this will begin searching for the next match after the end of prev match
-	// returns:
+	// back references are indicated by char codes 1-31 and none of those chars
+	// can be used in the replacement string such as a tab. will not search for
+	// matches within replaced text, this will begin searching for the next match
+	// after the end of prev match returns:
 	//   -1 if pattern cannot be compiled
 	//   -2 if count of back references and capture groups don't match
 	//   otherwise returns number of matches that were found and replaced

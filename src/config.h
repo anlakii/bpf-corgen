@@ -1,8 +1,9 @@
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
-#include <linux/filter.h>
+#include <json-c/json.h>
 #include <linux/bpf.h>
+#include <linux/filter.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -44,8 +45,24 @@ struct config {
 	uint8_t mov_reg_insns_len;
 	void (**mov_imm_insns)(struct environ *, struct bpf_reg *, int32_t);
 	uint8_t mov_imm_insns_len;
+	bool (**insns_types)(struct environ *);
+	uint8_t insns_types_len;
 };
 
-void parse_config(char *, struct config *);
+void parse_json(char *json_str, struct config *conf);
+void set_defaults(struct config *conf);
+void parse_maps_json(json_object *root_jobj, struct config *conf);
+void parse_alu_scal_ops_json(json_object *root_jobj, struct config *conf);
+void parse_alu_atomic_ops_json(json_object *root_jobj, struct config *conf);
+void parse_try_leaks(json_object *root_jobj, struct config *conf);
+void parse_pkt_len(json_object *root_jobj, struct config *conf);
+void parse_alu_insns(json_object *root_jobj, struct config *conf);
+void parse_mov_insns(json_object *root_jobj, struct config *conf);
+void parse_insns_types(json_object *root_jobj, struct config *conf);
+void parse_chaos_mode(json_object *root_jobj, struct config *conf);
+void parse_stack_align(json_object *root_jobj, struct config *conf);
+void parse_stack_size(json_object *root_jobj, struct config *conf);
+void parse_imm32_limits(json_object *root_jobj, struct config *conf);
+void parse_config(char *conf_file, struct config *conf);
 
 #endif

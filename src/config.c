@@ -1,10 +1,64 @@
-#include <json-c/json.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include "config.h"
 #include "debug.h"
 #include "gen.h"
 #include "insn_handlers.h"
+#include <json-c/json.h>
+#include <stdbool.h>
+#include <stdint.h>
+
+void parse_json(char *json_str, struct config *conf)
+{
+	json_object *root_jobj;
+	json_object *min_insns_jobj;
+	json_object *max_insns_jobj;
+
+	root_jobj = json_tokener_parse(json_str);
+
+	if (!root_jobj)
+		_abort("input data is not valid JSON");
+
+	if (!json_object_object_get_ex(root_jobj, "min_insns", &min_insns_jobj))
+		_abort("key \"min_insns\" not set");
+
+	if (json_object_get_type(min_insns_jobj) != json_type_int)
+		_abort("object \"min_insns\" not of int type");
+
+	conf->min_insns = json_object_get_int64(min_insns_jobj);
+
+	if (!json_object_object_get_ex(root_jobj, "max_insns", &max_insns_jobj))
+		_abort("key \"max_insns\" not set");
+
+	if (json_object_get_type(max_insns_jobj) != json_type_int)
+		_abort("object \"max_insns\" not of int type");
+
+	conf->max_insns = json_object_get_int64(max_insns_jobj);
+
+	parse_alu_scal_ops_json(root_jobj, conf);
+	parse_alu_atomic_ops_json(root_jobj, conf);
+	parse_maps_json(root_jobj, conf);
+	parse_try_leaks(root_jobj, conf);
+	parse_alu_insns(root_jobj, conf);
+	parse_mov_insns(root_jobj, conf);
+	parse_insns_types(root_jobj, conf);
+	parse_pkt_len(root_jobj, conf);
+	parse_chaos_mode(root_jobj, conf);
+	parse_stack_align(root_jobj, conf);
+	parse_stack_size(root_jobj, conf);
+	parse_imm32_limits(root_jobj, conf);
+}
+
+void set_defaults(struct config *conf)
+{
+	conf->try_leak_into_mem = true;
+	conf->try_leak_into_map = true;
+	conf->pkt_len = 0x1000;
+	conf->chaos_mode = false;
+	conf->stack_align = true;
+	conf->reg_bind_range = 64;
+	conf->stack_size = 128;
+	conf->imm32_min = -128;
+	conf->imm32_max = 128;
+}
 
 void parse_maps_json(json_object *root_jobj, struct config *conf)
 {
@@ -367,19 +421,23 @@ void parse_alu_insns(json_object *root_jobj, struct config *conf)
 
 		if (!strcmp(type, "BPF_ALU64_REG")) {
 			conf->alu_reg_insns_len++;
-			conf->alu_reg_insns = reallocarray(conf->alu_reg_insns, conf->alu_reg_insns_len, sizeof(bool (*)(struct environ *, uint8_t, struct bpf_reg *, struct bpf_reg *)));
+			conf->alu_reg_insns = reallocarray(conf->alu_reg_insns, conf->alu_reg_insns_len,
+											   sizeof(bool (*)(struct environ *, uint8_t, struct bpf_reg *, struct bpf_reg *)));
 			conf->alu_reg_insns[conf->alu_reg_insns_len - 1] = gen_bpf_alu64_reg;
 		} else if (!strcmp(type, "BPF_ALU64_IMM")) {
 			conf->alu_imm_insns_len++;
-			conf->alu_imm_insns = reallocarray(conf->alu_imm_insns, conf->alu_imm_insns_len, sizeof(bool (*)(struct environ *, uint8_t, struct bpf_reg *, int32_t)));
+			conf->alu_imm_insns =
+				reallocarray(conf->alu_imm_insns, conf->alu_imm_insns_len, sizeof(bool (*)(struct environ *, uint8_t, struct bpf_reg *, int32_t)));
 			conf->alu_imm_insns[conf->alu_imm_insns_len - 1] = gen_bpf_alu64_imm;
 		} else if (!strcmp(type, "BPF_ALU32_REG")) {
 			conf->alu_reg_insns_len++;
-			conf->alu_reg_insns = reallocarray(conf->alu_reg_insns, conf->alu_reg_insns_len, sizeof(bool (*)(struct environ *, uint8_t, struct bpf_reg *, struct bpf_reg *)));
+			conf->alu_reg_insns = reallocarray(conf->alu_reg_insns, conf->alu_reg_insns_len,
+											   sizeof(bool (*)(struct environ *, uint8_t, struct bpf_reg *, struct bpf_reg *)));
 			conf->alu_reg_insns[conf->alu_reg_insns_len - 1] = gen_bpf_alu32_reg;
 		} else if (!strcmp(type, "BPF_ALU32_IMM")) {
 			conf->alu_imm_insns_len++;
-			conf->alu_imm_insns = reallocarray(conf->alu_imm_insns, conf->alu_imm_insns_len, sizeof(bool (*)(struct environ *, uint8_t, struct bpf_reg *, int32_t)));
+			conf->alu_imm_insns =
+				reallocarray(conf->alu_imm_insns, conf->alu_imm_insns_len, sizeof(bool (*)(struct environ *, uint8_t, struct bpf_reg *, int32_t)));
 			conf->alu_imm_insns[conf->alu_imm_insns_len - 1] = gen_bpf_alu32_imm;
 		} else
 			_abort("object \"alu_insns\": elem type unsupported");
@@ -409,22 +467,77 @@ void parse_mov_insns(json_object *root_jobj, struct config *conf)
 
 		if (!strcmp(type, "BPF_MOV64_REG")) {
 			conf->mov_reg_insns_len++;
-			conf->mov_reg_insns = reallocarray(conf->mov_reg_insns, conf->mov_reg_insns_len, sizeof(bool (*)(struct environ *, uint8_t, struct bpf_reg *, struct bpf_reg *)));
+			conf->mov_reg_insns = reallocarray(conf->mov_reg_insns, conf->mov_reg_insns_len,
+											   sizeof(bool (*)(struct environ *, uint8_t, struct bpf_reg *, struct bpf_reg *)));
 			conf->mov_reg_insns[conf->mov_reg_insns_len - 1] = gen_bpf_mov64_reg;
 		} else if (!strcmp(type, "BPF_MOV64_IMM")) {
 			conf->mov_imm_insns_len++;
-			conf->mov_imm_insns = reallocarray(conf->mov_imm_insns, conf->mov_imm_insns_len, sizeof(bool (*)(struct environ *, struct bpf_reg *, int32_t)));
+			conf->mov_imm_insns =
+				reallocarray(conf->mov_imm_insns, conf->mov_imm_insns_len, sizeof(bool (*)(struct environ *, struct bpf_reg *, int32_t)));
 			conf->mov_imm_insns[conf->mov_imm_insns_len - 1] = gen_bpf_mov64_imm;
 		} else if (!strcmp(type, "BPF_MOV32_REG")) {
 			conf->mov_reg_insns_len++;
-			conf->mov_reg_insns = reallocarray(conf->mov_reg_insns, conf->mov_reg_insns_len, sizeof(bool (*)(struct environ *, uint8_t, struct bpf_reg *, struct bpf_reg *)));
+			conf->mov_reg_insns = reallocarray(conf->mov_reg_insns, conf->mov_reg_insns_len,
+											   sizeof(bool (*)(struct environ *, uint8_t, struct bpf_reg *, struct bpf_reg *)));
 			conf->mov_reg_insns[conf->mov_reg_insns_len - 1] = gen_bpf_mov32_reg;
 		} else if (!strcmp(type, "BPF_MOV32_IMM")) {
 			conf->mov_imm_insns_len++;
-			conf->mov_imm_insns = reallocarray(conf->mov_imm_insns, conf->mov_imm_insns_len, sizeof(bool (*)(struct environ *, struct bpf_reg *, int32_t)));
+			conf->mov_imm_insns =
+				reallocarray(conf->mov_imm_insns, conf->mov_imm_insns_len, sizeof(bool (*)(struct environ *, struct bpf_reg *, int32_t)));
 			conf->mov_imm_insns[conf->mov_imm_insns_len - 1] = gen_bpf_mov32_imm;
 		} else
 			_abort("object \"mov_insns\": elem type unsupported");
+	}
+}
+
+void parse_insns_types(json_object *root_jobj, struct config *conf)
+{
+	json_object *insns_types_jobj;
+	json_object *insns_types_elem_jobj;
+	if (!json_object_object_get_ex(root_jobj, "insns_types", &insns_types_jobj))
+		_abort("object \"insns_types\": not set");
+
+	if (json_object_get_type(insns_types_jobj) != json_type_array)
+		_abort("object \"insns_types\": not of array type");
+
+	size_t insns_types_len = json_object_array_length(insns_types_jobj);
+	if (!insns_types_len)
+		_abort("object \"insns_types\": array of size zero");
+
+	for (size_t idx = 0; idx < insns_types_len; idx++) {
+		insns_types_elem_jobj = json_object_array_get_idx(insns_types_jobj, idx);
+		if (json_object_get_type(insns_types_elem_jobj) != json_type_string)
+			_abort("object \"insns_types\": elem not of string type");
+
+		const char *type = json_object_get_string(insns_types_elem_jobj);
+
+		conf->insns_types_len++;
+		conf->insns_types = reallocarray(conf->insns_types, conf->insns_types_len, sizeof(bool (*)(struct environ * env)));
+
+		if (!strcmp(type, "MOV"))
+			conf->insns_types[conf->insns_types_len - 1] = generate_rand_mov;
+		else if (!strcmp(type, "ALU"))
+			conf->insns_types[conf->insns_types_len - 1] = generate_rand_alu;
+		else if (!strcmp(type, "LD_IMM64"))
+			conf->insns_types[conf->insns_types_len - 1] = generate_rand_ld_imm64;
+		else if (!strcmp(type, "MEM_LD"))
+			conf->insns_types[conf->insns_types_len - 1] = generate_rand_mem_ld;
+		else if (!strcmp(type, "MAP_OP"))
+			conf->insns_types[conf->insns_types_len - 1] = generate_rand_map_op;
+		else if (!strcmp(type, "PTR_STX"))
+			conf->insns_types[conf->insns_types_len - 1] = generate_rand_ptr_stx;
+		else if (!strcmp(type, "PTR_LDX"))
+			conf->insns_types[conf->insns_types_len - 1] = generate_rand_ptr_ldx;
+		else if (!strcmp(type, "REG_SPILL"))
+			conf->insns_types[conf->insns_types_len - 1] = generate_rand_reg_spill;
+		else if (!strcmp(type, "REG_BOUNDS"))
+			conf->insns_types[conf->insns_types_len - 1] = generate_rand_reg_bounds;
+		else if (!strcmp(type, "HELPER_CALL"))
+			conf->insns_types[conf->insns_types_len - 1] = generate_rand_helper_call;
+		else if (!strcmp(type, "ZEXT_REG"))
+			conf->insns_types[conf->insns_types_len - 1] = generate_rand_zext_reg;
+		else
+			_abort("object \"insns_types\": elem type unsupported");
 	}
 }
 
@@ -489,68 +602,6 @@ void parse_imm32_limits(json_object *root_jobj, struct config *conf)
 	}
 }
 
-void parse_json(char *json_str, struct config *conf)
-{
-	json_object *root_jobj;
-	json_object *min_insns_jobj;
-	json_object *max_insns_jobj;
-
-	root_jobj = json_tokener_parse(json_str);
-
-	if (!root_jobj)
-		_abort("input data is not valid JSON");
-
-	if (!json_object_object_get_ex(root_jobj, "min_insns", &min_insns_jobj))
-		_abort("key \"min_insns\" not set");
-
-	if (json_object_get_type(min_insns_jobj) != json_type_int)
-		_abort("object \"min_insns\" not of int type");
-
-	conf->min_insns = json_object_get_int64(min_insns_jobj);
-
-	if (!json_object_object_get_ex(root_jobj, "max_insns", &max_insns_jobj))
-		_abort("key \"max_insns\" not set");
-
-	if (json_object_get_type(max_insns_jobj) != json_type_int)
-		_abort("object \"max_insns\" not of int type");
-
-	conf->max_insns = json_object_get_int64(max_insns_jobj);
-
-	parse_alu_scal_ops_json(root_jobj, conf);
-	parse_alu_atomic_ops_json(root_jobj, conf);
-	parse_maps_json(root_jobj, conf);
-	parse_try_leaks(root_jobj, conf);
-	parse_alu_insns(root_jobj, conf);
-	parse_mov_insns(root_jobj, conf);
-	parse_pkt_len(root_jobj, conf);
-	parse_chaos_mode(root_jobj, conf);
-	parse_stack_align(root_jobj, conf);
-	parse_stack_size(root_jobj, conf);
-	parse_imm32_limits(root_jobj, conf);
-
-  if (conf->chaos_mode) {
-    conf->try_leak_into_map = true;
-    conf->try_leak_into_mem = true;
-    conf->stack_align = false;
-    conf->stack_size = 512;
-    conf->imm32_max = INT32_MAX;
-    conf->imm32_min = INT32_MIN;
-  }
-}
-
-void set_defaults(struct config *conf)
-{
-	conf->try_leak_into_mem = true;
-	conf->try_leak_into_map = true;
-	conf->pkt_len = 0x1000;
-	conf->chaos_mode = false;
-	conf->stack_align = true;
-	conf->reg_bind_range = 64;
-	conf->stack_size = 128;
-	conf->imm32_min = -128;
-	conf->imm32_max = 128;
-}
-
 void parse_config(char *conf_file, struct config *conf)
 {
 	char *json = NULL;
@@ -566,9 +617,8 @@ void parse_config(char *conf_file, struct config *conf)
 		json = calloc(sizeof(char) * fsize + 1, sizeof(char));
 		fread(json, 1, fsize, fp);
 		fclose(fp);
-	}
-  else 
-    _abort("file not found");
+	} else
+		_abort("file not found");
 	set_defaults(conf);
 
 	parse_json(json, conf);

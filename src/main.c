@@ -1,15 +1,15 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <time.h>
-#include <unistd.h>
-#include <getopt.h>
-#include <sys/capability.h>
+#include "config.h"
+#include "debug.h"
 #include "gen.h"
 #include "helpers.h"
 #include "loader.h"
-#include "debug.h"
-#include "config.h"
+#include <getopt.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/capability.h>
+#include <sys/time.h>
+#include <time.h>
+#include <unistd.h>
 
 struct opts {
 	char *config_file;
@@ -19,21 +19,19 @@ struct opts {
 
 void print_help(char **argv)
 {
-	printf(
-		"Usage:\n %s [options] \n\n"
-		"Options:\n"
-		"  -c, --config	<file>           JSON config to use\n"
-		"  -g, --debug   <valid|invalid>  debug switch\n"
-		"\n"
-		"  -h, --help                   display this help and "
-		"exit\n",
-		argv[0]);
+	printf("Usage:\n %s [options] \n\n"
+		   "Options:\n"
+		   "  -c, --config	<file>           JSON config to use\n"
+		   "  -g, --debug   <valid|invalid>  debug switch\n"
+		   "\n"
+		   "  -h, --help                   display this help and "
+		   "exit\n",
+		   argv[0]);
 }
 
 struct opts parse_opts(int argc, char **argv)
 {
-	struct option long_opts[] = {{"config", required_argument, NULL, 'c'},
-								 {0, 0, 0, 0}};
+	struct option long_opts[] = {{"config", required_argument, NULL, 'c'}, {0, 0, 0, 0}};
 	struct opts opts = {0};
 
 	int opt;
@@ -72,8 +70,9 @@ void setup_env(struct environ *env, int argc, char **argv)
 	if (!opts.config_file) {
 		print_help(argv);
 		exit(EXIT_SUCCESS);
-	} else
-		_log("using config -- %s", opts.config_file);
+	}
+
+	_log("using config -- %s", opts.config_file);
 
 	struct config *conf = calloc(1, sizeof(struct config));
 	parse_config(opts.config_file, conf);
@@ -98,20 +97,15 @@ int main(int argc, char **argv)
 	srand(seed);
 	size_t success = 0;
 	float avg_insn = 0;
-	size_t max_insn = 0,
-		   total_insns = 0,
-		   prog_num = 1;
+	size_t max_insn = 0, total_insns = 0, prog_num = 1;
 
 	struct timeval stop, start;
 
 	struct environ env = {0};
 	setup_env(&env, argc, argv);
 
-	_log("starting fuzzer (%s) -- min insns %zu, max insns: %zu // seed: %zu",
-		 env.privileged ? "privileged" : "unprivileged",
-		 env.conf->min_insns,
-		 env.conf->max_insns,
-		 seed);
+	_log("starting fuzzer (%s) -- min insns %zu, max insns: %zu // seed: %zu", env.privileged ? "privileged" : "unprivileged", env.conf->min_insns,
+		 env.conf->max_insns, seed);
 	gettimeofday(&start, NULL);
 	while (env.running) {
 
@@ -123,34 +117,29 @@ int main(int argc, char **argv)
 
 		if (run_bpf_prog(&env)) {
 			success++;
-			if (env.generated_insns > max_insn)
-				max_insn = env.generated_insns;
-
 			total_insns += env.generated_insns;
 
 			avg_insn = (float) total_insns / success;
-			gettimeofday(&stop, NULL);
-			_progress("%.2f%% (avg: %zu, max: %zu) %zu/sec -- total %zu // valid %zu -- %zu insn",
-					  ((float) success / prog_num) * 100,
-					  (size_t) avg_insn,
-					  max_insn,
-					  (size_t) ((float) prog_num / (((stop.tv_sec - start.tv_sec) * 1000000 + stop.tv_usec - start.tv_usec)) * 1000000),
-					  prog_num,
-					  success,
-					  env.generated_insns);
+			if (env.generated_insns > max_insn)
+				max_insn = env.generated_insns;
 
 			if (env.conf->debug_valid) {
 				for (int i = 0; i < env.generated_insns; i++) {
-					disas_insn(env.insns[i]);
 					_log("%s", env.insns_str + INSN_STR_LEN * i);
 				}
 			}
 		} else if (env.conf->debug_invalid) {
 			for (int i = 0; i < env.generated_insns; i++) {
-				disas_insn(env.insns[i]);
 				_log("%s", env.insns_str + INSN_STR_LEN * i);
 			}
 		}
+
+		gettimeofday(&stop, NULL);
+		_progress("%.2f%% (avg: %zu, max: %zu) %zu/sec -- total %zu // valid %zu "
+				  "-- %zu insn",
+				  ((float) success / prog_num) * 100, (size_t) avg_insn, max_insn,
+				  (size_t) ((float) prog_num / (((stop.tv_sec - start.tv_sec) * 1000000 + stop.tv_usec - start.tv_usec)) * 1000000), prog_num,
+				  success, env.generated_insns);
 
 		prog_num++;
 		free(env.insns_str);

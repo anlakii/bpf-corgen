@@ -1,6 +1,6 @@
 {
-  "min_insns": 20,
-  "max_insns": 250,
+  "min_insns": 50,
+  "max_insns": 200,
   "maps": [
     {
       "map_type": "BPF_MAP_TYPE_HASH",
@@ -34,7 +34,8 @@
   "chaos_mode": false,
   "stack_align": true,
   "stack_size": 512,
-  "reg_bind_range": 64,
+  "imm32_min": -8192,
+  "imm32_max": 8192,
   "alu_scal_ops": [
     "BPF_ADD",
     "BPF_SUB",
@@ -71,6 +72,16 @@
     "BPF_MOV32_REG",
     "BPF_MOV32_IMM"
   ],
-  "imm32_min": -8192,
-  "imm32_max": 8192
+  "insns_types": [
+    "MOV",
+    "ALU",
+    "LD_IMM64",
+    "MEM_LD",
+    "MAP_OP",
+    "PTR_STX",
+    "PTR_LDX",
+    "REG_SPILL",
+    "REG_BOUNDS",
+    "HELPER_CALL"
+  ]
 }

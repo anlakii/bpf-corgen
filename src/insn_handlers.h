@@ -2,6 +2,8 @@
 #define __INSN_HANDLERS_H
 #include "gen.h"
 
+void mark_regs_not_init_call(struct environ *env);
+void __mark_reg_unknown(struct environ *env, struct bpf_reg *reg);
 void gen_bpf_exit_insn(struct environ *env);
 void gen_bpf_alu64_reg(struct environ *env, uint8_t op, struct bpf_reg *dst, struct bpf_reg *src);
 void gen_bpf_alu32_reg(struct environ *env, uint8_t op, struct bpf_reg *dst, struct bpf_reg *src);
@@ -19,10 +21,15 @@ void gen_bpf_ld_imm64(struct environ *env, struct bpf_reg *dst, int64_t imm);
 void gen_bpf_ld_map_fd(struct environ *env, struct bpf_reg *dst, int32_t fd);
 void gen_bpf_jmp_imm(struct environ *env, uint8_t op, struct bpf_reg *dst, int32_t imm, int32_t off);
 void gen_bpf_stx_mem(struct environ *env, uint8_t size, struct bpf_reg *dst, struct bpf_reg *src, int32_t off);
+void gen_bpf_ldx_mem(struct environ *env, uint8_t size, struct bpf_reg *dst, struct bpf_reg *src, int32_t off);
 void gen_bpf_call_map_update_elem(struct environ *env);
 void gen_bpf_call_map_lookup_elem(struct environ *env);
 void gen_bpf_call_map_delete_elem(struct environ *env);
 void gen_bpf_call_get_prandom_u32(struct environ *env);
-void gen_bpf_atomic_op(struct environ *env, uint8_t size, int32_t op, struct bpf_reg *dst, struct bpf_reg *src, int32_t off);
+void gen_bpf_call_ringbuf_reserve(struct environ *env);
+void gen_bpf_call_ringbuf_output(struct environ *env);
+void gen_bpf_call_ringbuf_submit(struct environ *env);
+void gen_bpf_call_ringbuf_discard(struct environ *env);
+void gen_bpf_atomic_op(struct environ *env, uint8_t size, uint8_t op, struct bpf_reg *dst, struct bpf_reg *src, int32_t off);
 
 #endif
