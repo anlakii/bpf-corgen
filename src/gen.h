@@ -74,7 +74,7 @@ struct environ {
 	struct bpf_reg regs[11];
 	char *insns_str;
 	struct bpf_insn *insns;
-	struct bpf_stack_state stack[MAX_BPF_STACK / 8];
+	struct bpf_stack_state stack[MAX_BPF_STACK / BPF_REG_SIZE];
 
 	bool running;
 	bool privileged;
@@ -95,6 +95,8 @@ bool is_mutable(struct bpf_reg *reg);
 bool vcheck_reg(struct bpf_reg *reg, va_list va);
 bool check_reg(struct bpf_reg *reg, ...);
 struct bpf_reg *get_rand_reg(struct environ *env, ...);
+int8_t byte_size(uint8_t bpf_size);
+int8_t bpf_size(uint8_t byte_size);
 bool generate_rand_reg_bounds(struct environ *env);
 bool generate_rand_alu_reg(struct environ *env);
 bool generate_rand_alu_imm(struct environ *env);

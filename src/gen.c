@@ -71,10 +71,11 @@ bool is_mutable(struct bpf_reg *reg)
 {
 	return reg->mutable;
 }
-bool vcheck_reg(struct bpf_reg *reg, va_list va) {
+bool vcheck_reg(struct bpf_reg *reg, va_list va)
+{
 
-  va_list valist;
-  va_copy(valist, va);
+	va_list valist;
+	va_copy(valist, va);
 	bool (*requirements[16])(struct bpf_reg * reg) = {0};
 	bool (*requirement)(struct bpf_reg * reg);
 	uint8_t idx_va = 0;
@@ -85,31 +86,31 @@ bool vcheck_reg(struct bpf_reg *reg, va_list va) {
 		idx_va++;
 	} while (idx_va < 16 && requirement);
 
-  bool matched = true;
-  for (uint8_t idx_callback = 0; idx_callback < idx_va - 1; idx_callback++) {
-    if (!requirements[idx_callback])
-      continue;
-    if (!requirements[idx_callback](reg)) {
-      matched = false;
-      break;
-    }
-  }
+	bool matched = true;
+	for (uint8_t idx_callback = 0; idx_callback < idx_va - 1; idx_callback++) {
+		if (!requirements[idx_callback])
+			continue;
+		if (!requirements[idx_callback](reg)) {
+			matched = false;
+			break;
+		}
+	}
 
 	va_end(valist);
 	return matched;
 }
 
-bool check_reg(struct bpf_reg *reg, ...) {
+bool check_reg(struct bpf_reg *reg, ...)
+{
 	va_list valist;
 	va_start(valist, reg);
 
-  bool match = vcheck_reg(reg, valist);
+	bool match = vcheck_reg(reg, valist);
 
-  va_end(valist);
+	va_end(valist);
 
-  return match;
+	return match;
 }
-
 
 struct bpf_reg *get_rand_reg(struct environ *env, ...)
 {
@@ -136,6 +137,38 @@ struct bpf_reg *get_rand_reg(struct environ *env, ...)
 
 /* STOP REG FILTERING */
 
+int8_t byte_size(uint8_t bpf_size)
+{
+	switch (bpf_size) {
+		case BPF_B:
+			return 1;
+		case BPF_H:
+			return 2;
+		case BPF_W:
+			return 4;
+		case BPF_DW:
+			return 8;
+		default:
+			_abort("invalid bpf_size");
+	}
+}
+
+int8_t bpf_size(uint8_t byte_size)
+{
+	switch (byte_size) {
+		case 1:
+			return BPF_B;
+		case 2:
+			return BPF_H;
+		case 4:
+			return BPF_W;
+		case 8:
+			return BPF_DW;
+		default:
+			_abort("invalid byte_size");
+	}
+}
+
 bool is_arithmetic_allowed(struct environ *env, struct bpf_reg *dst, struct bpf_reg *src, uint8_t op,
 						   void (*alu_reg_insn)(struct environ *, uint8_t, struct bpf_reg *, struct bpf_reg *))
 {
@@ -144,18 +177,22 @@ bool is_arithmetic_allowed(struct environ *env, struct bpf_reg *dst, struct bpf_
 
 	if (!env->privileged) {
 
+		/* prohibit arithmetic with ctx */
 		if ((dst->reg_type == PTR_TO_CTX || src->reg_type == PTR_TO_CTX))
 			return false;
 
+		/* prohibit arithmetic with const ptr to map */
 		if ((dst->reg_type == CONST_PTR_TO_MAP || src->reg_type == CONST_PTR_TO_MAP))
 			return false;
 
+		/* prohibit arithmetic with ptr to mem */
 		if ((dst->reg_type == PTR_TO_MEM || src->reg_type == PTR_TO_MEM))
 			return false;
 	}
 
-  if (dst->reg_type != SCALAR_VALUE && src->reg_type != SCALAR_VALUE)
-    return false;
+	/* prohibit arithmetic with on two pointers */
+	if (dst->reg_type != SCALAR_VALUE && src->reg_type != SCALAR_VALUE)
+		return false;
 
 	if ((dst->reg_type != SCALAR_VALUE || src->reg_type != SCALAR_VALUE)) {
 
@@ -163,6 +200,9 @@ bool is_arithmetic_allowed(struct environ *env, struct bpf_reg *dst, struct bpf_
 			return false;
 
 		if (op != BPF_ADD && op != BPF_SUB)
+			return false;
+
+		if (op == BPF_SUB && src->reg_type != SCALAR_VALUE)
 			return false;
 	}
 
@@ -388,9 +428,9 @@ int write_stack(struct environ *env, void *data, size_t data_len, struct bpf_reg
 	int16_t offset;
 
 	if (env->conf->stack_align)
-		offset = (-rand_between(data_len, env->conf->stack_size)) & ~(8 - 1);
+		offset = (-rand_between(data_len, env->conf->stack_size - 1)) & ~(8 - 1);
 	else
-		offset = (-rand_between(data_len, env->conf->stack_size));
+		offset = (-rand_between(data_len, env->conf->stack_size - 1));
 
 	for (chunk = 0; chunk < data_len; chunk += 8) {
 		if (chunk + 8 <= data_len)
@@ -409,40 +449,41 @@ int write_stack(struct environ *env, void *data, size_t data_len, struct bpf_reg
 	return offset;
 }
 
-int16_t get_stack_chunk(struct environ *env, uint16_t size) {
-  int16_t offset = 0;
-  uint16_t count = 0;
-  uint8_t byte_size;
-  switch (size) {
-    case BPF_B:
-      byte_size = 1;
-      break;
-    case BPF_H:
-      byte_size = 2;
-      break;
-    case BPF_W:
-      byte_size = 4;
-      break;
-    case BPF_DW:
-      byte_size = 8;
-      break;
-  }
+int16_t get_stack_chunk(struct environ *env, uint16_t size)
+{
+	int16_t offset = 0;
+	uint16_t count = 0;
+	uint8_t byte_size;
+	switch (size) {
+		case BPF_B:
+			byte_size = 1;
+			break;
+		case BPF_H:
+			byte_size = 2;
+			break;
+		case BPF_W:
+			byte_size = 4;
+			break;
+		case BPF_DW:
+			byte_size = 8;
+			break;
+	}
 
-  for (int16_t idx = 0; idx < MAX_BPF_STACK - 1; idx++) {
-    if (env->stack[idx / 8].slot_type[idx % 8] == STACK_INVALID) {
-      offset = 0;
-      count = 0;
-      continue;
-    }
+	for (int16_t idx = 0; idx < MAX_BPF_STACK - 1; idx++) {
+		int slot = idx;
+		int spi = slot / BPF_REG_SIZE;
+		if (env->stack[spi].slot_type[slot % BPF_REG_SIZE] == STACK_INVALID) {
+			offset = 0;
+			count = 0;
+			continue;
+		}
 
-    offset = idx;
-    if (count >= byte_size)
-      return idx - count;
-    count++;
-    
-  }
-  return 0;
-  
+		offset = idx;
+		if (count >= byte_size)
+			return idx;
+		count++;
+	}
+	return 0;
 }
 
 bool generate_rand_ptr_ldx(struct environ *env)
@@ -456,16 +497,17 @@ bool generate_rand_ptr_ldx(struct environ *env)
 	uint8_t size = BPF_DW;
 	int32_t off = rand() % env->conf->imm32_max;
 
-  if (src->reg_type == PTR_TO_STACK) {
-		off = - get_stack_chunk(env, size);
-    if (!off)
-      return false;
-    /* do not restore state if reg spill */
-  }
+	if (src->reg_type == PTR_TO_STACK) {
+		off = -get_stack_chunk(env, size);
+		if (!off)
+			return false;
+		/* do not restore state if reg spill */
+	}
 
-  if (dst->reg_type == PTR_TO_MAP_VALUE) {
-    off = 0;
-  }
+	return false;
+
+	if (dst->reg_type == PTR_TO_MAP_VALUE)
+		off = 0;
 
 	gen_bpf_ldx_mem(env, size, dst, src, off);
 	return true;
@@ -478,7 +520,7 @@ bool generate_rand_ptr_stx(struct environ *env)
 	uint8_t size = bpf_mem_size[rand() % LEN(bpf_mem_size)];
 	int32_t off = rand() % env->conf->imm32_max;
 
-  if (env->privileged)
+	if (env->privileged)
 		dst = get_rand_reg(env, is_ptr, is_mutable, is_enabled, is_not_ptr_to_ctx, NULL);
 	else
 		dst = get_rand_reg(env, is_ptr, is_mutable, is_enabled, is_not_ptr_to_ctx, is_not_const_ptr_to_map, NULL);
@@ -500,13 +542,13 @@ bool generate_rand_ptr_stx(struct environ *env)
 	if (!dst)
 		return false;
 
-  if (dst->reg_type == PTR_TO_STACK) {
-    src = get_rand_reg(env, is_init, is_enabled, is_scalar, NULL);
-    if (env->conf->stack_align)
-      off = (-rand_between(1, env->conf->stack_size)) & ~(8 - 1);
-    else
-      off = (-rand_between(1, env->conf->stack_size));
-  }
+	if (dst->reg_type == PTR_TO_STACK) {
+		src = get_rand_reg(env, is_init, is_enabled, is_scalar, NULL);
+		if (env->conf->stack_align)
+			off = (-rand_between(1, env->conf->stack_size - 1)) & ~(byte_size(size) - 1);
+		else
+			off = (-rand_between(1, env->conf->stack_size - 1));
+	}
 
 	if (!src)
 		return false;
@@ -534,9 +576,9 @@ bool generate_rand_reg_spill(struct environ *env)
 
 	int16_t off;
 	if (env->conf->stack_align)
-		off = (-rand_between(1, env->conf->stack_size)) & ~(8 - 1);
+		off = (-rand_between(1, env->conf->stack_size - 1)) & ~(byte_size(size) - 1);
 	else
-		off = (-rand_between(1, env->conf->stack_size));
+		off = (-rand_between(1, env->conf->stack_size - 1));
 
 	gen_bpf_stx_mem(env, size, &env->regs[BPF_REG_10], reg_spill, off);
 
@@ -564,9 +606,9 @@ bool generate_map_update_elem(struct environ *env, struct map_info *map)
 	int16_t key_off;
 
 	if (env->conf->stack_align)
-		key_off = -((rand() % env->conf->stack_size) + 8) & ~(8 - 1);
+		key_off = -((rand() % env->conf->stack_size - 1)) & ~((int16_t) map->map->key_size - 1);
 	else
-		key_off = -((rand() % env->conf->stack_size) + 8);
+		key_off = -((rand() % env->conf->stack_size - 1));
 
 	if (!has_insn_space(env, (10 + 3 * (map->map->value_size / 8))))
 		return false;
@@ -582,14 +624,14 @@ bool generate_map_update_elem(struct environ *env, struct map_info *map)
 	if (count == map->map->max_entries) {
 
 		gen_bpf_mov64_imm(env, &env->regs[BPF_REG_8], rand_key);
-		gen_bpf_stx_mem(env, BPF_DW, &env->regs[BPF_REG_10], &env->regs[BPF_REG_8], key_off);
+		gen_bpf_stx_mem(env, bpf_size(map->map->key_size), &env->regs[BPF_REG_10], &env->regs[BPF_REG_8], key_off);
 
 	} else {
 		struct bpf_reg *reg = get_rand_reg(env, is_init, is_enabled, is_scalar, NULL);
 		if (!reg)
 			return false;
 
-		gen_bpf_stx_mem(env, BPF_DW, &env->regs[BPF_REG_10], reg, key_off);
+		gen_bpf_stx_mem(env, bpf_size(map->map->key_size), &env->regs[BPF_REG_10], reg, key_off);
 	}
 
 	gen_bpf_mov64_reg(env, &env->regs[BPF_REG_2], &env->regs[BPF_REG_10]);
@@ -616,9 +658,9 @@ bool generate_map_lookup_elem(struct environ *env, struct map_info *map)
 
 	int16_t key_off;
 	if (env->conf->stack_align)
-		key_off = -((rand() % env->conf->stack_size) + 8) & ~(8 - 1);
+		key_off = -((rand() % env->conf->stack_size - 1)) & ~((int16_t) map->map->key_size - 1);
 	else
-		key_off = -((rand() % env->conf->stack_size) + 8);
+		key_off = -((rand() % env->conf->stack_size - 1));
 
 	int64_t rand_key;
 	size_t count = get_rand_map_key(map, &rand_key);
@@ -627,7 +669,7 @@ bool generate_map_lookup_elem(struct environ *env, struct map_info *map)
 
 	gen_bpf_ld_map_fd(env, &env->regs[MAP_FD_REG_IDX], map->fd);
 	gen_bpf_mov64_imm(env, &env->regs[BPF_REG_8], rand_key);
-	gen_bpf_stx_mem(env, BPF_DW, &env->regs[BPF_REG_10], &env->regs[BPF_REG_8], key_off);
+	gen_bpf_stx_mem(env, bpf_size(map->map->key_size), &env->regs[BPF_REG_10], &env->regs[BPF_REG_8], key_off);
 	gen_bpf_mov64_reg(env, &env->regs[BPF_REG_2], &env->regs[BPF_REG_10]);
 	gen_bpf_alu64_imm(env, BPF_ADD, &env->regs[BPF_REG_2], key_off);
 	gen_bpf_call_map_lookup_elem(env);
@@ -650,9 +692,9 @@ bool generate_map_delete_elem(struct environ *env, struct map_info *map)
 
 	int16_t key_off;
 	if (env->conf->stack_align)
-		key_off = (-rand_between(1, env->conf->stack_size)) & ~(8 - 1);
+		key_off = (-rand_between(1, env->conf->stack_size - 1)) & ~((int16_t) map->map->key_size - 1);
 	else
-		key_off = -rand_between(1, env->conf->stack_size);
+		key_off = -rand_between(1, env->conf->stack_size - 1);
 
 	int64_t rand_key;
 
@@ -662,7 +704,7 @@ bool generate_map_delete_elem(struct environ *env, struct map_info *map)
 
 	gen_bpf_ld_map_fd(env, &env->regs[MAP_FD_REG_IDX], map->fd);
 	gen_bpf_ld_imm64(env, &env->regs[BPF_REG_8], rand_key);
-	gen_bpf_stx_mem(env, BPF_DW, &env->regs[BPF_REG_10], &env->regs[BPF_REG_8], key_off);
+	gen_bpf_stx_mem(env, bpf_size(map->map->key_size), &env->regs[BPF_REG_10], &env->regs[BPF_REG_8], key_off);
 	gen_bpf_mov64_reg(env, &env->regs[BPF_REG_2], &env->regs[BPF_REG_10]);
 	gen_bpf_alu64_imm(env, BPF_ADD, &env->regs[BPF_REG_2], key_off);
 	gen_bpf_call_map_delete_elem(env);
@@ -795,9 +837,9 @@ void setup(struct environ *env)
 		env->maps[idx].ringbuf_reserved = false;
 	}
 
-  for (size_t idx = 0; idx < MAX_BPF_STACK; idx++) {
-    env->stack[idx / 8].slot_type[idx % 8] = STACK_INVALID;
-  }
+	for (size_t idx = 0; idx < MAX_BPF_STACK; idx++) {
+		env->stack[idx / 8].slot_type[idx % 8] = STACK_INVALID;
+	}
 }
 
 size_t get_rand_op(struct environ *env)

@@ -27,6 +27,14 @@
       "max_entries": 2,
       "map_flags": [
       ]
+    },
+    {
+      "map_type": "BPF_MAP_TYPE_RINGBUF",
+      "key_size": 0,
+      "value_size": 0,
+      "max_entries": 65536,
+      "map_flags": [
+      ]
     }
   ],
   "try_leak_into_map": false,
