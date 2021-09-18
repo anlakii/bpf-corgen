@@ -70,7 +70,7 @@ struct bpf_reg bpf_regs[] = {
 	(struct bpf_reg){
 		.idx = BPF_REG_10,
 		.mutable = false,
-		.enable = false,
+		.enable = true,
 		.reg_type = PTR_TO_STACK,
 	},
 };

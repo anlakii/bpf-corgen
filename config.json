@@ -3,7 +3,7 @@
   "max_insns": 200,
   "maps": [
     {
-      "map_type": "BPF_MAP_TYPE_HASH",
+      "map_type": "BPF_MAP_TYPE_HASH", 
       "key_size": 4,
       "value_size": 8,
       "max_entries": 64,
@@ -29,13 +29,13 @@
       ]
     }
   ],
-  "try_leak_into_map": true,
-  "try_leak_into_mem": true,
+  "try_leak_into_map": false,
+  "try_leak_into_mem": false,
   "chaos_mode": false,
   "stack_align": true,
   "stack_size": 512,
-  "imm32_min": -8192,
-  "imm32_max": 8192,
+  "imm32_min": -1024,
+  "imm32_max": 1024,
   "alu_scal_ops": [
     "BPF_ADD",
     "BPF_SUB",
@@ -76,7 +76,7 @@
     "MOV",
     "ALU",
     "LD_IMM64",
-    "MEM_LD",
+    "SKB_LD_ABS",
     "MAP_OP",
     "PTR_STX",
     "PTR_LDX",

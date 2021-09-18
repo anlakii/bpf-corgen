@@ -440,7 +440,7 @@ void parse_alu_insns(json_object *root_jobj, struct config *conf)
 				reallocarray(conf->alu_imm_insns, conf->alu_imm_insns_len, sizeof(bool (*)(struct environ *, uint8_t, struct bpf_reg *, int32_t)));
 			conf->alu_imm_insns[conf->alu_imm_insns_len - 1] = gen_bpf_alu32_imm;
 		} else
-			_abort("object \"alu_insns\": elem type unsupported");
+			_abort("object \"alu_insns\": elem \"%s\" unsupported", type);
 	}
 }
 
@@ -520,8 +520,8 @@ void parse_insns_types(json_object *root_jobj, struct config *conf)
 			conf->insns_types[conf->insns_types_len - 1] = generate_rand_alu;
 		else if (!strcmp(type, "LD_IMM64"))
 			conf->insns_types[conf->insns_types_len - 1] = generate_rand_ld_imm64;
-		else if (!strcmp(type, "MEM_LD"))
-			conf->insns_types[conf->insns_types_len - 1] = generate_rand_mem_ld;
+		else if (!strcmp(type, "SKB_LD_ABS"))
+			conf->insns_types[conf->insns_types_len - 1] = generate_rand_skb_ld_abs;
 		else if (!strcmp(type, "MAP_OP"))
 			conf->insns_types[conf->insns_types_len - 1] = generate_rand_map_op;
 		else if (!strcmp(type, "PTR_STX"))
@@ -537,7 +537,7 @@ void parse_insns_types(json_object *root_jobj, struct config *conf)
 		else if (!strcmp(type, "ZEXT_REG"))
 			conf->insns_types[conf->insns_types_len - 1] = generate_rand_zext_reg;
 		else
-			_abort("object \"insns_types\": elem type unsupported");
+			_abort("object \"insns_types\": elem \"%s\" unsupported", type);
 	}
 }
 

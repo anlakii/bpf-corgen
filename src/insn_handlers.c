@@ -14,6 +14,10 @@
 #include <time.h>
 
 /* BEGIN INSN HANDLERS */
+void check_insn_buf(struct environ *env, const char *insn) {
+	if (env->generated_insns + 1 > env->total_insns)
+		_abort("%s overflows insn buf", insn);
+}
 
 void mark_regs_not_init_call(struct environ *env)
 {
@@ -32,24 +36,21 @@ void __mark_reg_unknown(struct environ *env, struct bpf_reg *reg)
 
 void gen_bpf_exit_insn(struct environ *env)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("BPF_EXIT_INSN overflows insn buf");
+  check_insn_buf(env, "BPF_EXIT_INSN");
 
 	snprintf((char *) env->insns_str + INSN_STR_LEN * env->generated_insns, INSN_STR_LEN, "BPF_EXIT_INSN()");
-
 	env->insns[env->generated_insns++] = BPF_EXIT_INSN();
 }
 
 void gen_bpf_alu64_reg(struct environ *env, uint8_t op, struct bpf_reg *dst, struct bpf_reg *src)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("BPF_ALU64_REG overflows insn buf");
+  check_insn_buf(env, "BPF_ALU64_REG");
 
-	if (src->reg_type == NOT_INIT)
-		_abort("BPF_ALU64_REG src %d not init", src->idx);
+	if (!check_reg(src, is_init, is_enabled, NULL))
+		_abort("BPF_ALU64_REG src reg %d invalid", src->idx);
 
-	if (!dst->mutable)
-		_abort("BPF_ALU64_REG dst %d not mutable", dst->idx);
+	if (!check_reg(dst, is_init, is_enabled, is_mutable, NULL))
+		_abort("BPF_ALU64_REG dst reg %d invalid", dst->idx);
 
 	snprintf((char *) env->insns_str + INSN_STR_LEN * env->generated_insns, INSN_STR_LEN, "BPF_ALU64_REG(0x%hhx, 0x%hhx, 0x%hhx)", op, dst->idx,
 			 src->idx);
@@ -60,14 +61,13 @@ void gen_bpf_alu64_reg(struct environ *env, uint8_t op, struct bpf_reg *dst, str
 
 void gen_bpf_alu32_reg(struct environ *env, uint8_t op, struct bpf_reg *dst, struct bpf_reg *src)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("BPF_ALU32_REG overflows insn buf");
+  check_insn_buf(env, "BPF_ALU32_REG");
 
-	if (src->reg_type == NOT_INIT)
-		_abort("BPF_ALU32_REG src %d not init", src->idx);
+	if (!check_reg(src, is_init, is_enabled, NULL))
+		_abort("BPF_ALU32_REG src reg %d invalid", src->idx);
 
-	if (!dst->mutable)
-		_abort("BPF_ALU32_REG dst %d not mutable", dst->idx);
+	if (!check_reg(dst, is_init, is_enabled, is_mutable, NULL))
+		_abort("BPF_ALU32_REG dst reg %d invalid", dst->idx);
 
 	snprintf((char *) env->insns_str + INSN_STR_LEN * env->generated_insns, INSN_STR_LEN, "BPF_ALU32_REG(0x%hhx, 0x%hhx, 0x%hhx)", op, dst->idx,
 			 src->idx);
@@ -78,48 +78,46 @@ void gen_bpf_alu32_reg(struct environ *env, uint8_t op, struct bpf_reg *dst, str
 
 void gen_bpf_alu64_imm(struct environ *env, uint8_t op, struct bpf_reg *dst, int32_t imm)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("BPF_ALU64_IMM overflows insn buf");
+  check_insn_buf(env, "BPF_ALU64_IMM");
 
-	if (!dst->mutable)
-		_abort("BPF_ALU64_IMM dst %d not mutable", dst->idx);
+	if (!check_reg(dst, is_init, is_enabled, is_mutable, NULL))
+		_abort("BPF_ALU64_IMM dst reg %d invalid", dst->idx);
 
 	snprintf((char *) env->insns_str + INSN_STR_LEN * env->generated_insns, INSN_STR_LEN, "BPF_ALU64_IMM(0x%hhx, 0x%hhx, 0x%x)", op, dst->idx, imm);
-
 	env->insns[env->generated_insns++] = BPF_ALU64_IMM(op, dst->idx, imm);
 }
 
 void gen_bpf_alu32_imm(struct environ *env, uint8_t op, struct bpf_reg *dst, int32_t imm)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("BPF_ALU32_IMM overflows insn buf");
+  check_insn_buf(env, "BPF_ALU32_IMM");
 
-	if (!dst->mutable)
-		_abort("BPF_ALU32_IMM dst %d not mutable", dst->idx);
+	if (!check_reg(dst, is_init, is_enabled, is_mutable, NULL))
+		_abort("BPF_ALU32_IMM dst reg %d invalid", dst->idx);
 
 	snprintf((char *) env->insns_str + INSN_STR_LEN * env->generated_insns, INSN_STR_LEN, "BPF_ALU32_IMM(0x%hhx, 0x%hhx, 0x%x)", op, dst->idx, imm);
-
 	env->insns[env->generated_insns++] = BPF_ALU32_IMM(op, dst->idx, imm);
 }
 
 void gen_bpf_endian(struct environ *env, uint8_t type, struct bpf_reg *dst, int32_t len)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("BPF_ENDIAN overflows insn buf");
+  check_insn_buf(env, "BPF_ENDIAN");
 
+	if (!check_reg(dst, is_init, is_enabled, is_mutable, NULL))
+		_abort("BPF_ENDIAN dst reg %d invalid", dst->idx);
+
+	snprintf((char *) env->insns_str + INSN_STR_LEN * env->generated_insns, INSN_STR_LEN, "BPF_ENDIAN(0x%hhx, 0x%x)", dst->idx, len);
 	env->insns[env->generated_insns++] = BPF_ENDIAN(type, dst->idx, len);
 }
 
 void gen_bpf_mov64_reg(struct environ *env, struct bpf_reg *dst, struct bpf_reg *src)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("BPF_MOV64_REG overflows insn buf");
+  check_insn_buf(env, "BPF_MOV64_REG");
 
-	if (src->reg_type == NOT_INIT)
-		_abort("BPF_MOV64_REG src %d not init", src->idx);
+	if (!check_reg(src, is_init, is_enabled, NULL))
+		_abort("BPF_MOV64_REG src reg %d invalid", src->idx);
 
-	if (!dst->mutable)
-		_abort("BPF_MOV64_REG dst %d not mutable", dst->idx);
+	if (!check_reg(dst, is_enabled, is_mutable, NULL))
+		_abort("BPF_MOV64_REG dst reg %d invalid", dst->idx);
 
 	snprintf((char *) env->insns_str + INSN_STR_LEN * env->generated_insns, INSN_STR_LEN, "BPF_MOV64_REG(0x%hhx, 0x%hhx)", dst->idx, src->idx);
 
@@ -131,14 +129,13 @@ void gen_bpf_mov64_reg(struct environ *env, struct bpf_reg *dst, struct bpf_reg 
 }
 void gen_bpf_mov32_reg(struct environ *env, struct bpf_reg *dst, struct bpf_reg *src)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("BPF_MOV32_REG overflows insn buf");
+  check_insn_buf(env, "BPF_MOV32_REG");
 
-	if (src->reg_type == NOT_INIT)
-		_abort("BPF_MOV64_REG src %d not init", src->idx);
+	if (!check_reg(src, is_init, is_enabled, NULL))
+		_abort("BPF_MOV32_REG src reg %d invalid", src->idx);
 
-	if (!dst->mutable)
-		_abort("BPF_MOV64_REG dst %d not mutable", dst->idx);
+	if (!check_reg(dst, is_enabled, is_mutable, NULL))
+		_abort("BPF_MOV32_REG dst reg %d invalid", dst->idx);
 
 	snprintf((char *) env->insns_str + INSN_STR_LEN * env->generated_insns, INSN_STR_LEN, "BPF_MOV32_REG(0x%hhx, 0x%hhx)", dst->idx, src->idx);
 
@@ -150,11 +147,10 @@ void gen_bpf_mov32_reg(struct environ *env, struct bpf_reg *dst, struct bpf_reg 
 }
 void gen_bpf_mov64_imm(struct environ *env, struct bpf_reg *dst, int32_t imm)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("BPF_MOV64_IMM overflows insn buf");
+  check_insn_buf(env, "BPF_MOV64_IMM");
 
-	if (!dst->mutable)
-		_abort("BPF_MOV64_IMM dst %d not mutable", dst->idx);
+	if (!check_reg(dst, is_enabled, is_mutable, NULL))
+		_abort("BPF_MOV64_IMM dst reg %d invalid", dst->idx);
 
 	snprintf((char *) env->insns_str + INSN_STR_LEN * env->generated_insns, INSN_STR_LEN, "BPF_MOV64_IMM(0x%hhx, 0x%x)", dst->idx, imm);
 
@@ -164,11 +160,10 @@ void gen_bpf_mov64_imm(struct environ *env, struct bpf_reg *dst, int32_t imm)
 }
 void gen_bpf_mov32_imm(struct environ *env, struct bpf_reg *dst, int32_t imm)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("BPF_MOV32_IMM overflows insn buf");
+  check_insn_buf(env, "BPF_MOV32_IMM");
 
-	if (!dst->mutable)
-		_abort("BPF_MOV32_IMM dst %d not mutable", dst->idx);
+	if (!check_reg(dst, is_enabled, is_mutable, NULL))
+		_abort("BPF_MOV32_IMM dst reg %d invalid", dst->idx);
 
 	snprintf((char *) env->insns_str + INSN_STR_LEN * env->generated_insns, INSN_STR_LEN, "BPF_MOV32_IMM(0x%hhx, 0x%x)", dst->idx, imm);
 
@@ -180,14 +175,10 @@ void gen_bpf_mov32_imm(struct environ *env, struct bpf_reg *dst, int32_t imm)
 /* Special form of mov32, used for doing explicit zero extension on dst. */
 void gen_bpf_zext_reg(struct environ *env, struct bpf_reg *dst)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("BPF_ZEXT_REG overflows insn buf");
+  check_insn_buf(env, "BPF_ZEXT_REG");
 
-	if (!dst->mutable)
-		_abort("BPF_ZEXT_REG dst %d not mutable", dst->idx);
-
-	if (dst->reg_type == NOT_INIT)
-		_abort("BPF_ZEXT_REG dst %d not init", dst->idx);
+	if (!check_reg(dst, is_init, is_enabled, is_mutable, NULL))
+		_abort("BPF_ZEXT_REG dst reg %d invalid", dst->idx);
 
 	snprintf((char *) env->insns_str + INSN_STR_LEN * env->generated_insns, INSN_STR_LEN, "BPF_ZEXT_REG(0x%hhx)", dst->idx);
 
@@ -197,10 +188,9 @@ void gen_bpf_zext_reg(struct environ *env, struct bpf_reg *dst)
 /* Direct packet access, R0 = *(uint *) (skb->data + imm32) */
 void gen_bpf_ld_abs(struct environ *env, uint8_t size, int32_t imm)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("BPF_LD_ABS overflows insn buf");
+  check_insn_buf(env, "BPF_LD_ABS");
 
-	if (imm > env->conf->pkt_len) // FIXME
+	if (imm > env->conf->pkt_len)
 		_abort("invalid read from __sk_buff (%d > %u)", imm, env->conf->pkt_len);
 
 	__mark_reg_unknown(env, &env->regs[BPF_REG_0]);
@@ -213,13 +203,17 @@ void gen_bpf_ld_abs(struct environ *env, uint8_t size, int32_t imm)
 
 void gen_bpf_ld_imm64_raw(struct environ *env, struct bpf_reg *dst, struct bpf_reg *src, int64_t imm)
 {
-	if (env->generated_insns + 2 > env->total_insns)
-		_abort("BPF_LD_IMM64_RAW overflows insn buf");
+  check_insn_buf(env, "BPF_LD_IMM64_RAW");
+
+  if (!check_reg(dst, is_enabled, is_mutable, NULL))
+		_abort("BPF_LD_IMM64_RAW dst reg %d invalid", dst->idx);
 
 	snprintf((char *) env->insns_str + INSN_STR_LEN * env->generated_insns, INSN_STR_LEN, "BPF_LD_IMM64_RAW(0x%hhx, 0x%hhx, 0x%lx)", dst->idx,
 			 src->idx, imm);
 
 	env->insns[env->generated_insns++] = BPF_LD_IMM64_RAW(dst->idx, src->idx, imm);
+
+  check_insn_buf(env, "BPF_LD_IMM64_RAW (ext)");
 	env->insns[env->generated_insns++] = (struct bpf_insn){0, 0, 0, 0, ((uint64_t) imm) >> 32};
 }
 
@@ -240,8 +234,7 @@ void gen_bpf_ld_map_fd(struct environ *env, struct bpf_reg *dst, int32_t fd)
 /* Conditional jumps against immediates, if (dst_reg 'op' imm32) goto pc + off16 */
 void gen_bpf_jmp_imm(struct environ *env, uint8_t op, struct bpf_reg *dst, int32_t imm, int32_t off)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("BPF_JMP_IMM overflows insn buf");
+  check_insn_buf(env, "BPF_JMP_IMM");
 
 	snprintf((char *) env->insns_str + INSN_STR_LEN * env->generated_insns, INSN_STR_LEN, "BPF_JMP_IMM(0x%hhx, 0x%hhx, 0x%x, 0x%x)", op, dst->idx,
 			 imm, off);
@@ -251,16 +244,39 @@ void gen_bpf_jmp_imm(struct environ *env, uint8_t op, struct bpf_reg *dst, int32
 /* Memory store, *(uint *) (dst_reg + off16) = src_reg */
 void gen_bpf_stx_mem(struct environ *env, uint8_t size, struct bpf_reg *dst, struct bpf_reg *src, int32_t off)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("BPF_STX_MEM overflows insn buf");
+  check_insn_buf(env, "BPF_STX_MEM");
+
+  if (!check_reg(src, is_init, is_enabled, NULL))
+		_abort("BPF_STX_MEM src reg %d invalid", src->idx);
+
+  if (!check_reg(dst, is_init, is_enabled, NULL))
+		_abort("BPF_STX_MEM dst reg %d invalid", dst->idx);
+
+  uint8_t byte_size;
+  switch (size) {
+    case BPF_B:
+      byte_size = 1;
+      break;
+    case BPF_H:
+      byte_size = 2;
+      break;
+    case BPF_W:
+      byte_size = 4;
+      break;
+    case BPF_DW:
+      byte_size = 8;
+      break;
+    default:
+      _abort("unsupported size");
+  }
 
 	if (dst->reg_type == PTR_TO_STACK) {
 		uint8_t slot_type = src->reg_type == SCALAR_VALUE ? STACK_MISC : STACK_SPILL;
-		for (size_t i = 0; i < size; i++) {
-			if ((-off + i) / 8 >= 64) {
+		for (size_t i = off; i < off + byte_size; i++) {
+			if ((-off + 1) / 8 >= 64) {
 				continue;
 			}
-			env->stack[(-off + i) / 8].slot_type[i % 8] = slot_type;
+			env->stack[(-off + 1) / 8].slot_type[i % 8] = slot_type;
 		}
 	}
 
@@ -272,8 +288,13 @@ void gen_bpf_stx_mem(struct environ *env, uint8_t size, struct bpf_reg *dst, str
 /* Memory load, dst_reg = *(uint *) (src_reg + off16) */
 void gen_bpf_ldx_mem(struct environ *env, uint8_t size, struct bpf_reg *dst, struct bpf_reg *src, int32_t off)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("BPF_STX_MEM overflows insn buf");
+  check_insn_buf(env, "BPF_LDX_MEM");
+
+  if (!check_reg(src, is_init, is_enabled, NULL))
+		_abort("BPF_LDX_MEM src reg %d invalid", src->idx);
+
+  if (!check_reg(src, is_init, is_enabled, NULL))
+		_abort("BPF_LDX_MEM dst reg %d invalid", dst->idx);
 
 	__mark_reg_unknown(env, dst);
 
@@ -284,20 +305,18 @@ void gen_bpf_ldx_mem(struct environ *env, uint8_t size, struct bpf_reg *dst, str
 
 void gen_bpf_call_map_update_elem(struct environ *env)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("call to map_update_elem overflows insn buf");
+  check_insn_buf(env, "call to map_update_elem");
 
-	env->insns[env->generated_insns++] = BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_update_elem);
 	__mark_reg_unknown(env, &env->regs[BPF_REG_0]);
 	mark_regs_not_init_call(env);
 
 	snprintf((char *) env->insns_str + INSN_STR_LEN * env->generated_insns, INSN_STR_LEN, "call map_update_elem");
+	env->insns[env->generated_insns++] = BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_map_update_elem);
 }
 
 void gen_bpf_call_map_lookup_elem(struct environ *env)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("call to map_lookup_elem overflows insn buf");
+  check_insn_buf(env, "call to map_lookup_elem");
 
 	env->regs[BPF_REG_0].reg_type = PTR_TO_MAP_VALUE;
 	mark_regs_not_init_call(env);
@@ -308,8 +327,7 @@ void gen_bpf_call_map_lookup_elem(struct environ *env)
 
 void gen_bpf_call_map_delete_elem(struct environ *env)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("call to map_delete_elem overflows insn buf");
+  check_insn_buf(env, "call to map_delete_elem");
 
 	__mark_reg_unknown(env, &env->regs[BPF_REG_0]);
 	mark_regs_not_init_call(env);
@@ -320,8 +338,7 @@ void gen_bpf_call_map_delete_elem(struct environ *env)
 
 void gen_bpf_call_get_prandom_u32(struct environ *env)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("call to get_prandom_u32 overflows insn buf");
+  check_insn_buf(env, "call to get_prandom_u32");
 
 	__mark_reg_unknown(env, &env->regs[BPF_REG_0]);
 	mark_regs_not_init_call(env);
@@ -332,8 +349,7 @@ void gen_bpf_call_get_prandom_u32(struct environ *env)
 
 void gen_bpf_call_ringbuf_reserve(struct environ *env)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("call to bpf_ringbuf_reserve overflows insn buf");
+  check_insn_buf(env, "call to bpf_ringbuf_reserve");
 
 	__mark_reg_unknown(env, &env->regs[BPF_REG_0]);
 	env->regs[BPF_REG_0].reg_type = PTR_TO_MEM;
@@ -345,8 +361,7 @@ void gen_bpf_call_ringbuf_reserve(struct environ *env)
 
 void gen_bpf_call_ringbuf_output(struct environ *env)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("call to bpf_ringbuf_output overflows insn buf");
+  check_insn_buf(env, "call to bpf_ringbuf_output");
 
 	__mark_reg_unknown(env, &env->regs[BPF_REG_0]);
 	mark_regs_not_init_call(env);
@@ -357,8 +372,7 @@ void gen_bpf_call_ringbuf_output(struct environ *env)
 
 void gen_bpf_call_ringbuf_submit(struct environ *env)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("call to bpf_ringbuf_submit overflows insn buf");
+  check_insn_buf(env, "call to bpf_ringbuf_submit");
 
 	__mark_reg_unknown(env, &env->regs[BPF_REG_0]);
 	mark_regs_not_init_call(env);
@@ -369,8 +383,7 @@ void gen_bpf_call_ringbuf_submit(struct environ *env)
 
 void gen_bpf_call_ringbuf_discard(struct environ *env)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("call to bpf_ringbuf_discard overflows insn buf");
+  check_insn_buf(env, "call to bpf_ringbuf_discard");
 
 	__mark_reg_unknown(env, &env->regs[BPF_REG_0]);
 	env->regs[BPF_REG_0].reg_type = NOT_INIT;
@@ -385,15 +398,14 @@ void gen_bpf_call_ringbuf_discard(struct environ *env)
 
 void gen_bpf_atomic_op(struct environ *env, uint8_t size, uint8_t op, struct bpf_reg *dst, struct bpf_reg *src, int32_t off)
 {
-	if (env->generated_insns + 1 > env->total_insns)
-		_abort("BPF_ATOMIC_OP overflows insn buf");
+  check_insn_buf(env, "BPF_ATOMIC_OP");
 
-	if (dst->reg_type == NOT_INIT)
-		_abort("BPF_ATOMIC_OP dst %d not init", dst->idx);
+  if (!check_reg(src, is_init, is_enabled, NULL))
+		_abort("BPF_ATOMIC_OP dst reg %d invalid", dst->idx);
 
-	if (src->reg_type == NOT_INIT)
-		_abort("BPF_ATOMIC_OP src %d not init", src->idx);
-
+  if (!check_reg(dst, is_init, is_enabled, NULL))
+		_abort("BPF_ATOMIC_OP dst reg %d invalid", dst->idx);
+  
 	snprintf((char *) env->insns_str + INSN_STR_LEN * env->generated_insns, INSN_STR_LEN, "BPF_ATOMIC_OP(0x%hhx, 0x%hhx, 0x%hhx, 0x%hhx, 0x%x)", size,
 			 op, dst->idx, src->idx, off);
 

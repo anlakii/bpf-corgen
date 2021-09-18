@@ -64,7 +64,8 @@ void sanitizer_err_msg(char **msg)
 	regex_replace(&test, "math between ([a-z_]+) pointer and -?[0-9]{5,}", "math between \1 pointer and BIG_X");
 	regex_replace(&test, "id=[0-9]+ alloc_insn=[0-9]+", "id=X alloc_insn=Y");
 	regex_replace(&test, "([+-]+)[0-9]+ ", " \1X ");
-	regex_replace(&test, "-?[0-9]{5,}", "BIG_X");
+	regex_replace(&test, "([+-]+)[0-9]+ ", " \1X ");
+	regex_replace(&test, "-?[0-9]{5,} ", "BIG_X ");
 	*msg = test;
 }
 
